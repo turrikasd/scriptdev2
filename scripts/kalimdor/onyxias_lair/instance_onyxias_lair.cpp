@@ -63,6 +63,24 @@ void instance_onyxias_lair::SetData(uint32 uiType, uint32 uiData)
     // Currently no reason to save anything
 }
 
+<<<<<<< HEAD
+=======
+bool instance_onyxias_lair::CheckAchievementCriteriaMeet(uint32 uiCriteriaId, Player const* /*pSource*/, Unit const* /*pTarget*/, uint32 /*uiMiscValue1 = 0*/) const
+{
+    switch (uiCriteriaId)
+    {
+        case ACHIEV_CRIT_MANY_WHELPS_N:
+        case ACHIEV_CRIT_MANY_WHELPS_H:
+            return m_uiAchievWhelpsCount >= ACHIEV_CRIT_REQ_MANY_WHELPS;
+        case ACHIEV_CRIT_NO_BREATH_N:
+        case ACHIEV_CRIT_NO_BREATH_H:
+            return m_uiEncounter != DATA_PLAYER_TOASTED;
+        default:
+            return false;
+    }
+}
+
+>>>>>>> f05ec83... [2843] Fix unused parameter warnings
 InstanceData* GetInstanceData_instance_onyxias_lair(Map* pMap)
 {
     return new instance_onyxias_lair(pMap);
