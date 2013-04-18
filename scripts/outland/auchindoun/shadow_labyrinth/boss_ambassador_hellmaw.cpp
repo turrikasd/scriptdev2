@@ -16,8 +16,8 @@
 
 /* ScriptData
 SDName: Boss_Ambassador_Hellmaw
-SD%Complete: 80
-SDComment: Enrage spell missing/not known
+SD%Complete: 100
+SDComment: 
 SDCategory: Auchindoun, Shadow Labyrinth
 EndScriptData */
 
@@ -36,7 +36,7 @@ enum
 
     SPELL_CORROSIVE_ACID    = 33551,
     SPELL_FEAR              = 33547,
-    SPELL_ENRAGE            = 34970
+    SPELL_ENRAGE            = 27680
 };
 
 struct MANGOS_DLL_DECL boss_ambassador_hellmawAI : public ScriptedAI
@@ -50,9 +50,19 @@ struct MANGOS_DLL_DECL boss_ambassador_hellmawAI : public ScriptedAI
         if (m_pInstance && m_creature->isAlive())
         {
             if (m_pInstance->GetData(TYPE_OVERSEER) != DONE)
+			{
                 DoCastSpellIfCan(m_creature, SPELL_BANISH, CAST_TRIGGERED);
+				m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+				m_creature->GetMotionMaster()->MoveIdle();
+			}
             else
+			{
+				if (m_creature->HasAura(SPELL_BANISH))
+					m_creature->RemoveAurasDueToSpell(SPELL_BANISH);
+
+				m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                 m_creature->GetMotionMaster()->MoveWaypoint();
+			}
         }
     }
 
@@ -62,13 +72,16 @@ struct MANGOS_DLL_DECL boss_ambassador_hellmawAI : public ScriptedAI
     uint32 m_uiCorrosiveAcidTimer;
     uint32 m_uiFearTimer;
     uint32 m_uiEnrageTimer;
+	bool m_calledHelp;
     bool m_bIsEnraged;
+
 
     void Reset() override
     {
         m_uiCorrosiveAcidTimer  = urand(20000, 23000);
         m_uiFearTimer           = urand(20000, 26000);
         m_uiEnrageTimer         = 3 * MINUTE * IN_MILLISECONDS;
+		m_calledHelp			= false;
         m_bIsEnraged            = false;
     }
 
@@ -124,6 +137,13 @@ struct MANGOS_DLL_DECL boss_ambassador_hellmawAI : public ScriptedAI
         }
         else
             m_uiFearTimer -= uiDiff;
+
+		if (m_creature->GetHealthPercent() < 30 && !m_calledHelp) // calls for nearby units to aid him at 30% hp
+		{
+			DoScriptText(SAY_HELP, m_creature);
+			m_creature->CallForHelp(70.0f);
+			m_calledHelp = true;
+		}
 
         if (!m_bIsRegularMode && !m_bIsEnraged)
         {

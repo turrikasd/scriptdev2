@@ -71,7 +71,8 @@ void instance_shadow_labyrinth::OnCreatureCreate(Creature* pCreature)
             m_mNpcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
             break;
         case NPC_FEL_OVERSEER:
-            ++m_uiFelOverseerCount;                         // TODO should actually only count alive ones
+			if (pCreature->GetGUIDLow() != 67088) // HACKKKFIXXXX. we don't want that fel overseer.
+				++m_uiFelOverseerCount;                         
             debug_log("SD2: Shadow Labyrinth: counting %u Fel Overseers.", m_uiFelOverseerCount);
             break;
     }
@@ -108,6 +109,7 @@ void instance_shadow_labyrinth::SetData(uint32 uiType, uint32 uiData)
                     {
                         // yell intro and remove banish aura
                         DoScriptText(SAY_HELLMAW_INTRO, pHellmaw);
+						pHellmaw->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                         pHellmaw->GetMotionMaster()->MoveWaypoint();
                         if (pHellmaw->HasAura(SPELL_BANISH))
                             pHellmaw->RemoveAurasDueToSpell(SPELL_BANISH);

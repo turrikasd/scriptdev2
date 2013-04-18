@@ -16,8 +16,8 @@
 
 /* ScriptData
 SDName: Boss_Blackheart_the_Inciter
-SD%Complete: 90
-SDComment: Not all yells are implemented.
+SD%Complete: 80
+SDComment: Incite Chaos needs further research and core support
 SDCategory: Auchindoun, Shadow Labyrinth
 EndScriptData */
 
@@ -26,8 +26,9 @@ EndScriptData */
 
 enum
 {
-    SPELL_INCITE_CHAOS      = 33676,                        // triggers 33684 on party members
+    SPELL_INCITE_CHAOS      = 33676,                        // triggers 33684 on party members - needs core support
     SPELL_CHARGE            = 33709,
+	SPELL_H_CHARGE			= 43519,
     SPELL_WAR_STOMP         = 33707,
 
     SAY_INTRO1              = -1555008,
@@ -58,34 +59,42 @@ struct MANGOS_DLL_DECL boss_blackheart_the_inciterAI : public ScriptedAI
     boss_blackheart_the_inciterAI(Creature* pCreature) : ScriptedAI(pCreature)
     {
         m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
+		m_bIsRegularMode = pCreature->GetMap()->IsRegularDifficulty();
         Reset();
     }
 
     ScriptedInstance* m_pInstance;
+	bool m_bIsRegularMode;
+	bool m_calledforHelp;
 
     uint32 m_uiInciteChaosTimer;
-    uint32 m_uiInciteChaosWaitTimer;
     uint32 m_uiChargeTimer;
     uint32 m_uiKnockbackTimer;
-
-    GuidVector m_vTargetsGuids;
+	uint32 m_helpTimer;
 
     void Reset() override
     {
-        m_uiInciteChaosWaitTimer = 0;
-        m_uiInciteChaosTimer = 15000;
+		m_calledforHelp		 = false;
+		m_helpTimer			 = 5000;
+        m_uiInciteChaosTimer = 50000;
         m_uiChargeTimer      = urand(30000, 37000);
         m_uiKnockbackTimer   = urand(10000, 14000);
     }
 
     void KilledUnit(Unit* /*pVictim*/) override
     {
-        DoScriptText(urand(0, 1) ? SAY_SLAY1 : SAY_SLAY2, m_creature);
+		switch (urand(0, 4))
+		{
+			case 0: DoScriptText(SAY_SLAY1, m_creature); break;
+            case 1: DoScriptText(SAY_SLAY2, m_creature); break;
+            case 2: DoScriptText(SAY2_SLAY1, m_creature); break;
+			case 3: DoScriptText(SAY2_SLAY2, m_creature); break;
+		}
     }
 
     void JustDied(Unit* /*pKiller*/) override
     {
-        DoScriptText(SAY_DEATH, m_creature);
+		DoScriptText(urand(0, 1) ? SAY_DEATH : SAY2_DEATH, m_creature);
 
         if (m_pInstance)
             m_pInstance->SetData(TYPE_INCITER, DONE);
@@ -93,11 +102,14 @@ struct MANGOS_DLL_DECL boss_blackheart_the_inciterAI : public ScriptedAI
 
     void Aggro(Unit* /*pWho*/) override
     {
-        switch (urand(0, 2))
+        switch (urand(0, 5))
         {
             case 0: DoScriptText(SAY_AGGRO1, m_creature); break;
             case 1: DoScriptText(SAY_AGGRO2, m_creature); break;
             case 2: DoScriptText(SAY_AGGRO3, m_creature); break;
+			case 3: DoScriptText(SAY2_AGGRO1, m_creature); break;
+			case 4: DoScriptText(SAY2_AGGRO2, m_creature); break;
+			case 5: DoScriptText(SAY2_AGGRO3, m_creature); break;
         }
 
         if (m_pInstance)
@@ -110,64 +122,37 @@ struct MANGOS_DLL_DECL boss_blackheart_the_inciterAI : public ScriptedAI
             m_pInstance->SetData(TYPE_INCITER, FAIL);
     }
 
-    void EnterEvadeMode()
-    {
-        // if we are waiting for Incite chaos to expire don't evade
-        if (m_uiInciteChaosWaitTimer)
-            return;
-
-        ScriptedAI::EnterEvadeMode();
-    }
-
     void UpdateAI(const uint32 uiDiff) override
     {
-        if (m_uiInciteChaosWaitTimer)
-        {
-            if (m_uiInciteChaosWaitTimer <= uiDiff)
-            {
-                // Restart attack on all targets
-                for (GuidVector::const_iterator itr = m_vTargetsGuids.begin(); itr!= m_vTargetsGuids.end(); ++itr)
-                {
-                    if (Unit* pTarget = m_creature->GetMap()->GetUnit(*itr))
-                        AttackStart(pTarget);
-                }
-
-                m_creature->HandleEmote(EMOTE_STATE_NONE);
-                m_uiInciteChaosWaitTimer = 0;
-            }
-            else
-                m_uiInciteChaosWaitTimer -= uiDiff;
-        }
-
         // Return since we have no pTarget
         if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
             return;
 
-        if (m_uiInciteChaosTimer < uiDiff)
-        {
-            // Store the threat list
-            m_vTargetsGuids.clear();
-            m_creature->FillGuidsListFromThreatList(m_vTargetsGuids);
+		if (!m_calledforHelp)
+		{
+			if (m_helpTimer < uiDiff)
+			{
+				m_creature->CallForHelp(70.0f); // Get owned if you didn't clear the room
+				DoScriptText(urand(0, 1) ? SAY_HELP : SAY2_HELP, m_creature);
+				m_calledforHelp = true;
+			} else m_helpTimer -= uiDiff;
+		}
 
+        // ToDo: this needs future core and script support
+        /*if (m_uiInciteChaosTimer < uiDiff)
+        {
             if (DoCastSpellIfCan(m_creature, SPELL_INCITE_CHAOS) == CAST_OK)
-            {
-                m_creature->HandleEmote(EMOTE_STATE_LAUGH);
-                m_uiInciteChaosTimer = 55000;
-                m_uiInciteChaosWaitTimer = 16000;
-                return;
-            }
+                m_uiInciteChaosTimer = 40000;
         }
         else
-            m_uiInciteChaosTimer -= uiDiff;
+            m_uiInciteChaosTimer -= uiDiff;*/
 
         // Charge Timer
         if (m_uiChargeTimer < uiDiff)
         {
-            if (Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 1, SPELL_CHARGE, SELECT_FLAG_NOT_IN_MELEE_RANGE))
-            {
-                if (DoCastSpellIfCan(pTarget, SPELL_CHARGE) == CAST_OK)
-                    m_uiChargeTimer = urand(30000, 43000);
-            }
+            Unit* pTarget = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0);
+            if (pTarget && DoCastSpellIfCan(pTarget, (m_bIsRegularMode ? SPELL_CHARGE : SPELL_H_CHARGE)) == CAST_OK)
+                m_uiChargeTimer = urand(30000, 43000);
         }
         else
             m_uiChargeTimer -= uiDiff;
